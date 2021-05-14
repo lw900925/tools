@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: tools
+
+logging:
+  level:
+    io.lw900925.tools: debug
+
+
+
+
