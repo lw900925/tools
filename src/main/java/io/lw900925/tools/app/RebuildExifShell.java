@@ -21,6 +21,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -49,19 +50,24 @@ public class RebuildExifShell {
 
                     Path targetPath = null;
                     TiffOutputSet output = null;
+                    ZonedDateTime dateTime = null;
                     try {
                         JpegImageMetadata metadata = (JpegImageMetadata) Imaging.getMetadata(file.toFile());
                         output = metadata.getExif().getOutputSet();
                         TiffOutputDirectory directory = output.getOrCreateExifDirectory();
-
 
                         // 移除原始拍摄日期
                         directory.removeField(ExifTagConstants.EXIF_TAG_DATE_TIME_ORIGINAL);
                         directory.removeField(ExifTagConstants.EXIF_TAG_DATE_TIME_DIGITIZED);
 
                         // 重建EXIF信息
-                        String baseFilename = filename.substring(0, filename.lastIndexOf(0x2e));
-                        ZonedDateTime dateTime = ZonedDateTime.parse(baseFilename, DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS").withZone(ZoneId.systemDefault()).withLocale(Locale.CHINESE));
+                        if (filename.contains("_IMG_")) {
+                            String baseFilename = filename.substring(0, filename.lastIndexOf("_IMG_"));
+                            dateTime = ZonedDateTime.parse(baseFilename, DateTimeFormatter.ofPattern("yyyy_MM_dd_HH_mm").withZone(ZoneId.systemDefault()).withLocale(Locale.CHINESE));
+                        } else {
+                            String baseFilename = filename.substring(0, filename.lastIndexOf(0x2e));
+                            dateTime = ZonedDateTime.parse(baseFilename, DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS").withZone(ZoneId.systemDefault()).withLocale(Locale.CHINESE));
+                        }
                         String strDateTime = DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss").format(dateTime);
 
                         directory.add(ExifTagConstants.EXIF_TAG_DATE_TIME_ORIGINAL, strDateTime);
@@ -85,6 +91,8 @@ public class RebuildExifShell {
                         LOGGER.error("写入照片EXIF信息失败 - " + e.getMessage(), e);
                         return FileVisitResult.TERMINATE;
                     }
+
+                    Files.setAttribute(targetPath, "basic:creationTime", FileTime.from(dateTime.toInstant()));
 
                     LOGGER.info("已处理[{}/{}]个文件，源文件：{}，目标文件：{}", index, count, filename, targetPath.getFileName());
 
