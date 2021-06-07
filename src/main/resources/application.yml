@@ -6,6 +6,9 @@ logging:
   level:
     io.lw900925.tools: debug
 
-
+app:
+  exif-tool:
+    path: ${user.dir}/
+    backup: false
 
 
