@@ -102,6 +102,8 @@ public class RebuildExifShell {
             directory.add(ExifTagConstants.EXIF_TAG_DATE_TIME_ORIGINAL, strDateTime);
             directory.add(ExifTagConstants.EXIF_TAG_DATE_TIME_DIGITIZED, strDateTime);
 
+            dateTime = ZonedDateTime.parse(strDateTime, DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss").withLocale(Locale.CHINESE).withZone(ZoneId.systemDefault()));
+
             targetPath = Paths.get(target + File.separator + filename);
         } catch (ImageReadException | ImageWriteException e) {
             LOGGER.error("读取照片EXIF信息失败 - " + e.getMessage(), e);
