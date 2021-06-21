@@ -6,6 +6,7 @@ import org.springframework.shell.standard.CommandValueProvider;
 import org.springframework.shell.standard.ShellComponent;
 import org.springframework.shell.standard.ShellMethod;
 import org.springframework.shell.standard.ShellOption;
+import org.springframework.util.FileSystemUtils;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -45,22 +46,11 @@ public class AggregateDirShell {
                 // 取日期最早的一条作为文件夹名
                 LocalDateTime localDateTime = localDateTimes.stream().min(Comparator.naturalOrder()).orElseThrow(() -> new NullPointerException(String.format("发生错误，未找到文件[%s]", path)));
                 String filename = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS").format(localDateTime);
-                String strDir = Paths.get(target, filename).toString();
+                Path dest = Paths.get(target, filename);
 
                 // COPY
-                Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
-                    @Override
-                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                        Path output = Paths.get(strDir, file.getFileName().toString());
-                        if (Files.notExists(output.getParent())) {
-                            Files.createDirectories(output.getParent());
-                        }
-                        Files.copy(file, output);
-                        return FileVisitResult.CONTINUE;
-                    }
-                });
-
-                LOGGER.info("已处理[{}/{}]个文件，源文件：{}，目标文件：{}", index, count, path, strDir);
+                FileSystemUtils.copyRecursively(path, dest);
+                LOGGER.info("已处理[{}/{}]个文件，源文件：{}，目标文件：{}", index, count, path, dest);
                 index ++;
             }
         } catch (IOException e) {
