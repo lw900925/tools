@@ -90,7 +90,7 @@ public class RenameShell {
                     // 获取对应的MetadataExtractor
                     Set<String> extensionSet = METADATA_EXTRACTORS.keySet().stream()
                             .filter(keys -> keys.contains(extension.toLowerCase()))
-                            .findFirst().orElseThrow(() -> new UnsupportedOperationException("不支持的文件格式"));
+                            .findFirst().orElseThrow(() -> new UnsupportedOperationException("Unsupported file extension."));
                     Map<String, Object> extractorMap = METADATA_EXTRACTORS.get(extensionSet);
 
 
@@ -101,7 +101,7 @@ public class RenameShell {
                     try {
                         metadata = extractor.extract(file.toFile());
                     } catch (ImageProcessingException e) {
-                        LOGGER.error("文件元数据提取失败 - " + e.getMessage(), e);
+                        LOGGER.error("Extract metadata failed - " + e.getMessage(), e);
                         return FileVisitResult.TERMINATE;
                     }
 
@@ -109,7 +109,7 @@ public class RenameShell {
                             .map(Directory::getTags)
                             .flatMap(Collection::stream)
                             .filter(tag -> tags.contains(tag.getTagName()))
-                            .findFirst().orElseThrow(() -> new NullPointerException(String.format("没有找到名称为%s的元数据", String.join(",", tags))))
+                            .findFirst().orElseThrow(() -> new NullPointerException(String.format("File [%s] cannot find metadata named %s", file, String.join(",", tags))))
                             .getDescription();
 
                     // 日期格式化的Pattern
@@ -123,14 +123,14 @@ public class RenameShell {
 
                     String strDateTime = ZonedDateTime.parse(tagDesc, formatter).format(DateTimeFormatter.ofPattern(DEFAULT_PATTERN));
                     if (StringUtils.isEmpty(strDateTime) || strDateTime.equals("null")) {
-                        LOGGER.error("文件[{}]无原始拍摄日期", filename);
+                        LOGGER.error("File [{}] has not original date.", filename);
                         return FileVisitResult.TERMINATE;
                     }
 
                     // 照片是19xx年拍摄的，可能元数据损坏，根据文件创建日期命名
                     if (strDateTime.startsWith("19")) {
                         String creationTime = DateTimeFormatter.ofPattern(DEFAULT_PATTERN).format(attrs.creationTime().toInstant());
-                        LOGGER.warn("文件[{}]原始拍摄日期（{}）过早，元数据可能损坏，已替换为文件创建日期{}。", filename, strDateTime, creationTime);
+                        LOGGER.warn("File [{}] original date is {}, metadata may broken, I replace original data to {}.", filename, strDateTime, creationTime);
                         strDateTime = creationTime;
                     }
 
@@ -143,7 +143,7 @@ public class RenameShell {
                     }
                     Files.copy(file, targetPath);
 
-                    LOGGER.info("已处理[{}/{}]个文件，源文件：{}，目标文件：{}", index, count, filename, destFilename);
+                    LOGGER.info("[{}/{}] - source:{} target:{}", index, count, filename, destFilename);
 
                     index++;
                     return FileVisitResult.CONTINUE;

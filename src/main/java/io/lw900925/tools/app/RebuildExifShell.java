@@ -70,7 +70,7 @@ public class RebuildExifShell {
                         throw new RuntimeException("处理失败");
                     }
 
-                    LOGGER.info("已处理[{}/{}]个文件，源文件：{}，目标文件：{}", index, count, filename, targetPath.getFileName());
+                    LOGGER.info("[{}/{}] - source:{} target:{}", index, count, filename, targetPath.getFileName());
 
                     index++;
                     return FileVisitResult.CONTINUE;

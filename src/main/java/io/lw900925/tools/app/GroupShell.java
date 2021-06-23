@@ -65,7 +65,7 @@ public class GroupShell {
                     }
                     Files.copy(file, targetPath);
 
-                    LOGGER.info("已处理[{}/{}]个文件 - {}", index, count, filename);
+                    LOGGER.info("[{}/{}] - {}", index, count, filename);
 
                     index++;
 

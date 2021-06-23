@@ -50,7 +50,7 @@ public class AggregateDirShell {
 
                 // COPY
                 FileSystemUtils.copyRecursively(path, dest);
-                LOGGER.info("已处理[{}/{}]个文件，源文件：{}，目标文件：{}", index, count, path, dest);
+                LOGGER.info("[{}/{}] - source:{} target:{}", index, count, path, dest);
                 index ++;
             }
         } catch (IOException e) {
