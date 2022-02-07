@@ -19,7 +19,6 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter'
 	implementation 'org.springframework.shell:spring-shell-starter:2.0.1.RELEASE'
 	implementation 'com.drewnoakes:metadata-extractor:2.13.0'
-	implementation 'org.apache.commons:commons-lang3:3.10'
 	implementation 'org.apache.commons:commons-imaging:1.0-alpha1'
 
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'

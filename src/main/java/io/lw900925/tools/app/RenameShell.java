@@ -9,6 +9,7 @@ import com.drew.metadata.Metadata;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,7 +35,7 @@ public class RenameShell {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RenameShell.class);
 
-    private static final String DEFAULT_PATTERN = "yyyyMMdd_HHmmss";
+    private static final String DEFAULT_PATTERN = "yyyy_MM_dd_HH_mm";
     private static final String METADATA_PATTERN_1 = "EEE MMM dd HH:mm:ss XXX yyyy";
     private static final String METADATA_PATTERN_2 = "yyyy:MM:dd HH:mm:ss";
 
@@ -135,7 +136,8 @@ public class RenameShell {
                     }
 
                     // 写入到目标文件夹
-                    String millisSecond = DateTimeFormatter.ofPattern("SSS").withLocale(Locale.CHINESE).withZone(ZoneId.systemDefault()).format(ZonedDateTime.now());
+                    String millisSecond = RandomStringUtils.random(1, false, true)
+                            + DateTimeFormatter.ofPattern("SSS").withLocale(Locale.CHINESE).withZone(ZoneId.systemDefault()).format(ZonedDateTime.now());
                     String destFilename = strDateTime + "_" + millisSecond + "." + extension;
                     Path targetPath = Paths.get(target + File.separator + destFilename);
                     if (Files.notExists(targetPath.getParent())) {
