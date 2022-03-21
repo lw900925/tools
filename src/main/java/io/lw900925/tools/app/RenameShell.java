@@ -3,6 +3,7 @@ package io.lw900925.tools.app;
 import com.drew.imaging.ImageProcessingException;
 import com.drew.imaging.jpeg.JpegMetadataReader;
 import com.drew.imaging.mp4.Mp4MetadataReader;
+import com.drew.imaging.png.PngMetadataReader;
 import com.drew.imaging.quicktime.QuickTimeMetadataReader;
 import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
@@ -11,6 +12,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.DateUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.shell.standard.CommandValueProvider;
@@ -22,12 +24,11 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.text.ParseException;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 @ShellComponent
@@ -64,6 +65,14 @@ public class RenameShell {
                             .put("extractor", new MovMetadataExtractor())
                             .build()
             )
+            .put(
+                    Sets.newHashSet("png"),
+                    ImmutableMap.<String, Object> builder()
+                            .put("patterns", Lists.newArrayList(METADATA_PATTERN_1, METADATA_PATTERN_2, "yyyy:MM:dd HH:mm:ss[a]"))
+                            .put("tags", Lists.newArrayList("File Modified Date"))
+                            .put("extractor", new PngMetadataExtractor())
+                            .build()
+            )
             .build();
 
     @ShellMethod(value = "按照拍摄日期重命名")
@@ -91,41 +100,39 @@ public class RenameShell {
                     // 获取对应的MetadataExtractor
                     Set<String> extensionSet = METADATA_EXTRACTORS.keySet().stream()
                             .filter(keys -> keys.contains(extension.toLowerCase()))
-                            .findFirst().orElseThrow(() -> new UnsupportedOperationException("Unsupported file extension."));
+                            .findFirst().orElseThrow(() -> new UnsupportedOperationException("Unsupported file extension." + file));
                     Map<String, Object> extractorMap = METADATA_EXTRACTORS.get(extensionSet);
 
 
+                    String strDateTime = null;
                     List<String> patterns = (List<String>) extractorMap.get("patterns");
                     List<String> tags = (List<String>) extractorMap.get("tags");
                     MetadataExtractor extractor = (MetadataExtractor) extractorMap.get("extractor");
-                    Metadata metadata = null;
                     try {
-                        metadata = extractor.extract(file.toFile());
-                    } catch (ImageProcessingException e) {
-                        LOGGER.error("Extract metadata failed - " + e.getMessage(), e);
-                        return FileVisitResult.TERMINATE;
-                    }
+                        Metadata metadata = extractor.extract(file.toFile());
 
-                    String tagDesc = StreamSupport.stream(metadata.getDirectories().spliterator(), false)
-                            .map(Directory::getTags)
-                            .flatMap(Collection::stream)
-                            .filter(tag -> tags.contains(tag.getTagName()))
-                            .findFirst().orElseThrow(() -> new NullPointerException(String.format("File [%s] cannot find metadata named %s", file, String.join(",", tags))))
-                            .getDescription();
+                        String tagDesc = StreamSupport.stream(metadata.getDirectories().spliterator(), false)
+                                .map(Directory::getTags)
+                                .flatMap(Collection::stream)
+                                .filter(tag -> tags.contains(tag.getTagName()))
+                                .findFirst().orElseThrow(() -> new NullPointerException(String.format("File [%s] cannot find metadata named %s", file, String.join(",", tags))))
+                                .getDescription();
 
-                    // 日期格式化的Pattern
-                    patterns = patterns.stream().map(pattern -> "[" + pattern + "]").collect(Collectors.toList());
-                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern(String.join("", patterns)).withZone(ZoneId.systemDefault());
-                    if (Pattern.compile("[\u4e00-\u9fa5]").matcher(tagDesc).find()) {
-                        formatter.withLocale(Locale.CHINESE);
-                    } else {
-                        formatter.withLocale(Locale.ENGLISH);
-                    }
+                        // 日期格式化的Pattern
+                        Locale locale = Locale.ENGLISH;
+                        if (Pattern.compile("[\u4e00-\u9fa5]").matcher(tagDesc).find()) {
+                            locale = Locale.CHINESE;
+                        }
+                        Date date = DateUtils.parseDate(tagDesc, locale, patterns.toArray(new String[0]));
+                        strDateTime = DateTimeFormatter.ofPattern(DEFAULT_PATTERN).withZone(ZoneId.systemDefault()).format(date.toInstant());
+                        if (StringUtils.isEmpty(strDateTime) || strDateTime.equals("null")) {
+                            LOGGER.error("File [{}] has not original date.", filename);
+                            return FileVisitResult.TERMINATE;
+                        }
 
-                    String strDateTime = ZonedDateTime.parse(tagDesc, formatter).format(DateTimeFormatter.ofPattern(DEFAULT_PATTERN));
-                    if (StringUtils.isEmpty(strDateTime) || strDateTime.equals("null")) {
-                        LOGGER.error("File [{}] has not original date.", filename);
-                        return FileVisitResult.TERMINATE;
+                    } catch (ImageProcessingException | ParseException e) {
+                        LOGGER.error("Extract metadata failed, file: {}, message: {}", file, e.getMessage());
+                        strDateTime = DateTimeFormatter.ofPattern(DEFAULT_PATTERN).withZone(ZoneId.systemDefault()).format(attrs.creationTime().toInstant());
                     }
 
                     // 照片是19xx年拍摄的，可能元数据损坏，根据文件创建日期命名
@@ -136,9 +143,8 @@ public class RenameShell {
                     }
 
                     // 写入到目标文件夹
-                    String millisSecond = RandomStringUtils.random(1, false, true)
-                            + DateTimeFormatter.ofPattern("SSS").withLocale(Locale.CHINESE).withZone(ZoneId.systemDefault()).format(ZonedDateTime.now());
-                    String destFilename = strDateTime + "_" + millisSecond + "." + extension;
+                    String millisSecond = RandomStringUtils.random(4, false, true);
+                    String destFilename = strDateTime + "_IMG_" + millisSecond + "." + extension.toUpperCase();
                     Path targetPath = Paths.get(target + File.separator + destFilename);
                     if (Files.notExists(targetPath.getParent())) {
                         Files.createDirectories(targetPath.getParent());
@@ -183,6 +189,13 @@ public class RenameShell {
         @Override
         public Metadata extract(File file) throws ImageProcessingException, IOException {
             return QuickTimeMetadataReader.readMetadata(file);
+        }
+    }
+
+    public static class PngMetadataExtractor implements MetadataExtractor {
+        @Override
+        public Metadata extract(File file) throws ImageProcessingException, IOException {
+            return PngMetadataReader.readMetadata(file);
         }
     }
 }
